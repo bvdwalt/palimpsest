@@ -64,7 +64,7 @@ func (s *Store) ListTree(ctx context.Context) ([]PageSummary, error) {
 	}
 	defer rows.Close()
 
-	var pages []PageSummary
+	pages := []PageSummary{}
 	for rows.Next() {
 		var p PageSummary
 		if err := rows.Scan(&p.ID, &p.ParentID, &p.Slug, &p.Title); err != nil {
@@ -211,7 +211,7 @@ func (s *Store) ListRevisions(ctx context.Context, pageID string) ([]Revision, e
 	}
 	defer rows.Close()
 
-	var revs []Revision
+	revs := []Revision{}
 	for rows.Next() {
 		var r Revision
 		if err := rows.Scan(&r.ID, &r.PageID, &r.Title, &r.ContentJSON, &r.ContentText, &r.CreatedAt); err != nil {
@@ -285,7 +285,7 @@ func (s *Store) Search(ctx context.Context, query string) ([]SearchResult, error
 	}
 	defer rows.Close()
 
-	var results []SearchResult
+	results := []SearchResult{}
 	for rows.Next() {
 		var r SearchResult
 		if err := rows.Scan(&r.ID, &r.Slug, &r.Title, &r.Snippet); err != nil {
