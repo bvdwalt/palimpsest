@@ -160,6 +160,35 @@ func (s *Store) Update(ctx context.Context, id string, title string, parentID *s
 	return s.Get(ctx, id)
 }
 
+// Move reparents a page without touching content or revisions; parentID nil moves the page to the top level.
+func (s *Store) Move(ctx context.Context, id string, parentID *string) (*Page, error) {
+	if parentID != nil {
+		cyclic, err := s.wouldCreateCycle(ctx, id, *parentID)
+		if err != nil {
+			return nil, err
+		}
+		if cyclic {
+			return nil, ErrCycle
+		}
+	}
+
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE pages SET parent_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+	`, parentID, id)
+	if err != nil {
+		return nil, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, ErrNotFound
+	}
+
+	return s.Get(ctx, id)
+}
+
 // wouldCreateCycle reports whether newParentID is id itself or a descendant of id.
 func (s *Store) wouldCreateCycle(ctx context.Context, id, newParentID string) (bool, error) {
 	if id == newParentID {

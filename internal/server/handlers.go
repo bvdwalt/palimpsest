@@ -123,6 +123,33 @@ func updatePageHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
+type movePageRequest struct {
+	ParentID *string `json:"parentId"`
+}
+
+func movePageHandler(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+
+		var req movePageRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		page, err := st.Move(r.Context(), id, req.ParentID)
+		if err != nil {
+			if errors.Is(err, store.ErrCycle) {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			handleStoreErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, page)
+	}
+}
+
 func deletePageHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")

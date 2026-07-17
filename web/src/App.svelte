@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { slide } from "svelte/transition";
   import * as api from "./lib/api";
   import type { PageSummary, Page, Revision, SearchResult } from "./types/Page";
   import PageTree from "./components/PageTree.svelte";
@@ -8,6 +9,9 @@
   let pages = $state<PageSummary[]>([]);
   let selectedId = $state<string | null>(null);
   let current = $state<Page | null>(null);
+
+  let draggedId = $state<string | null>(null);
+  let topLevelDropActive = $state(false);
 
   let editTitle = $state("");
   let editParentId = $state<string | null>(null);
@@ -153,6 +157,28 @@
     }
   }
 
+  function startDrag(id: string) {
+    draggedId = id;
+  }
+
+  function endDrag() {
+    draggedId = null;
+    topLevelDropActive = false;
+  }
+
+  async function movePage(id: string, newParentId: string | null) {
+    try {
+      const moved = await api.movePage(id, newParentId);
+      if (current?.id === id) {
+        current = moved;
+        editParentId = moved.parentId;
+      }
+      await loadPages();
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
   async function createPage() {
     if (!(await resolveUnsavedChanges())) return;
     const parentId = current?.id ?? null;
@@ -270,9 +296,51 @@
 
     <button class="new-page" onclick={createPage}>+ New page</button>
 
-    <nav>
-      <PageTree {pages} parentId={null} {selectedId} onSelect={selectPage} />
+    <nav
+      ondragover={(e) => {
+        if (draggedId === null) return;
+        e.preventDefault();
+      }}
+      ondrop={(e) => {
+        e.preventDefault();
+        if (draggedId !== null) movePage(draggedId, null);
+      }}
+    >
+      <PageTree
+        {pages}
+        parentId={null}
+        {selectedId}
+        {draggedId}
+        onSelect={selectPage}
+        onDragStart={startDrag}
+        onDragEnd={endDrag}
+        onDrop={movePage}
+      />
     </nav>
+
+    {#if draggedId !== null}
+      <div
+        class="drop-top-level"
+        role="region"
+        aria-label="Drop zone to move page to top level"
+        class:active={topLevelDropActive}
+        ondragover={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          topLevelDropActive = true;
+        }}
+        ondragleave={() => (topLevelDropActive = false)}
+        ondrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          topLevelDropActive = false;
+          if (draggedId !== null) movePage(draggedId, null);
+        }}
+        transition:slide={{ duration: 150 }}
+      >
+        Move to top level
+      </div>
+    {/if}
   </aside>
 
   <main>
@@ -436,6 +504,28 @@
 
   .new-page:hover {
     background: var(--accent-tint);
+  }
+
+  .drop-top-level {
+    flex-shrink: 0;
+    text-align: center;
+    padding: 0.5rem 0.5rem 0.4rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .drop-top-level.active {
+    background: var(--accent-tint);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   main {

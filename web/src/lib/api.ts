@@ -54,6 +54,13 @@ export function updatePage(
   });
 }
 
+export function movePage(id: string, parentId: string | null): Promise<Page> {
+  return request(`/api/pages/${id}/parent`, {
+    method: "PATCH",
+    body: JSON.stringify({ parentId }),
+  });
+}
+
 export function deletePage(id: string): Promise<void> {
   return request(`/api/pages/${id}`, { method: "DELETE" });
 }

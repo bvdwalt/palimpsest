@@ -26,6 +26,7 @@ func New(st *store.Store, autosaveIntervalSeconds int) http.Handler {
 		r.Post("/pages", createPageHandler(st))
 		r.Get("/pages/{id}", getPageHandler(st))
 		r.Put("/pages/{id}", updatePageHandler(st))
+		r.Patch("/pages/{id}/parent", movePageHandler(st))
 		r.Delete("/pages/{id}", deletePageHandler(st))
 		r.Get("/pages/{id}/revisions", listRevisionsHandler(st))
 		r.Post("/pages/{id}/revert/{revisionID}", revertHandler(st))
