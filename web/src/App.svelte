@@ -20,6 +20,10 @@
   let titleInputEl = $state<HTMLInputElement | null>(null);
   let editorComponent = $state<ReturnType<typeof Editor> | null>(null);
 
+  // Mobile-only: secondary toolbar actions (move, autosave, save, history, delete)
+  // collapse behind this toggle so the persistent chrome stays to one slim row.
+  let moreOpen = $state(false);
+
   let editTitle = $state("");
   let editParentId = $state<string | null>(null);
   let editContentJson = $state("");
@@ -87,6 +91,7 @@
     editContentJson = current.contentJson;
     editContentText = current.contentText;
     sidebarOpen = false; // no-op on desktop; on mobile, picking a page should hand focus to the editor
+    moreOpen = false;
   }
 
   async function selectPage(id: string) {
@@ -378,28 +383,38 @@
           bind:value={editTitle}
           placeholder="Page title"
         />
-        <label class="move-control">
-          <span>Move to</span>
-          <select
-            class="parent-select"
-            value={editParentId ?? ""}
-            onchange={onParentSelectChange}
-          >
-            <option value="">— Top level —</option>
-            {#each moveTargets(current.id) as target (target.page.id)}
-              <option value={target.page.id}>{moveTargetLabel(target)}</option>
-            {/each}
-          </select>
-        </label>
-        <label class="autosave-toggle">
-          <input type="checkbox" bind:checked={autosaveEnabled} />
-          Autosave
-        </label>
-        <button class="btn-primary" onclick={save} disabled={!dirty || saving}>
-          {saving ? "Saving..." : "Save"}
+        <button
+          class="overflow-toggle"
+          onclick={() => (moreOpen = !moreOpen)}
+          aria-expanded={moreOpen}
+          aria-label={moreOpen ? "Hide page actions" : "Show page actions"}
+        >
+          <span></span><span></span><span></span>
         </button>
-        <button onclick={toggleRevisions}>History</button>
-        <button class="danger" onclick={removePage}>Delete</button>
+        <div class="toolbar-actions" class:open={moreOpen}>
+          <label class="move-control">
+            <span>Move to</span>
+            <select
+              class="parent-select"
+              value={editParentId ?? ""}
+              onchange={onParentSelectChange}
+            >
+              <option value="">— Top level —</option>
+              {#each moveTargets(current.id) as target (target.page.id)}
+                <option value={target.page.id}>{moveTargetLabel(target)}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="autosave-toggle">
+            <input type="checkbox" bind:checked={autosaveEnabled} />
+            Autosave
+          </label>
+          <button class="btn-primary" onclick={save} disabled={!dirty || saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button onclick={toggleRevisions}>History</button>
+          <button class="danger" onclick={removePage}>Delete</button>
+        </div>
       </div>
 
       {#if error}
@@ -622,6 +637,32 @@
     border-bottom-color: var(--accent);
   }
 
+  .overflow-toggle {
+    display: none;
+    flex-shrink: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+  }
+
+  .overflow-toggle span {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .move-control {
     display: flex;
     align-items: center;
@@ -795,14 +836,32 @@
     .toolbar {
       flex-wrap: wrap;
       gap: 0.4rem;
-      margin-bottom: 0.6rem;
-      padding-bottom: 0.5rem;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.4rem;
     }
 
     .title-input {
-      flex-basis: 100%;
       font-size: 1.15rem;
       padding: 0.15rem 0;
+    }
+
+    .overflow-toggle {
+      display: flex;
+    }
+
+    /* Collapsed by default — moving/saving/history/delete are secondary to reading
+       and writing, so they live behind the toggle instead of costing a permanent
+       chunk of the viewport. */
+    .toolbar-actions {
+      display: none;
+      flex-basis: 100%;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding-top: 0.5rem;
+    }
+
+    .toolbar-actions.open {
+      display: flex;
     }
 
     .move-control {
