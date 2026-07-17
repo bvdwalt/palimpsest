@@ -16,11 +16,11 @@ var ErrNotFound = errors.New("not found")
 var ErrCycle = errors.New("cannot move a page under itself or one of its own descendants")
 
 type Store struct {
-	db *sql.DB
+	db dbConn
 }
 
 func New(db *sql.DB) *Store {
-	return &Store{db: db}
+	return &Store{db: sqlDB{db}}
 }
 
 type PageSummary struct {

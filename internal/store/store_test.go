@@ -193,6 +193,34 @@ func TestMoveRejectsCycle(t *testing.T) {
 	}
 }
 
+func TestUpdateWithNonexistentParentIsNotFound(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	page, err := s.Create(ctx, nil, "Doc", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if _, err := s.Update(ctx, page.ID, "Doc", strPtr("missing-parent"), "", ""); err != store.ErrNotFound {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestMoveWithNonexistentParentIsNotFound(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	page, err := s.Create(ctx, nil, "Doc", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if _, err := s.Move(ctx, page.ID, strPtr("missing-parent")); err != store.ErrNotFound {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestMoveNotFound(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t)
@@ -302,5 +330,53 @@ func TestRevertRestoresContentAndSnapshotsCurrent(t *testing.T) {
 	}
 	if len(revsAfter) != 2 {
 		t.Errorf("len(revsAfter) = %d, want 2 (revert snapshots the pre-revert state)", len(revsAfter))
+	}
+}
+
+func TestRevertNotFound(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	page, err := s.Create(ctx, nil, "Doc", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if _, err := s.Revert(ctx, page.ID, "missing-revision"); err != store.ErrNotFound {
+		t.Errorf("wrong revision id: err = %v, want ErrNotFound", err)
+	}
+	if _, err := s.Revert(ctx, "missing-page", "missing-revision"); err != store.ErrNotFound {
+		t.Errorf("wrong page id: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestUpdateNotFound(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	if _, err := s.Update(ctx, "missing", "Title", nil, "", ""); err != store.ErrNotFound {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRevertBeginTxErrorOnClosedDB(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := db.Connect(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("db.Connect: %v", err)
+	}
+	s := store.New(sqlDB)
+
+	page, err := s.Create(ctx, nil, "Doc", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	sqlDB.Close()
+
+	// Revert's first operation is BeginTx (unlike Update, which calls uniqueSlug
+	// first), so this is the one real, unmocked path that reaches sqlDB.BeginTx's
+	// own error branch instead of failing earlier.
+	if _, err := s.Revert(ctx, page.ID, "rev"); err == nil {
+		t.Error("Revert on a closed DB: err = nil, want an error")
 	}
 }
