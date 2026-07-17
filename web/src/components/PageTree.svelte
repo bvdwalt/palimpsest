@@ -197,4 +197,17 @@
   .node.invalid-target {
     opacity: 0.5;
   }
+
+  @media (pointer: coarse) {
+    /* No touch equivalent for HTML5 drag-and-drop, so the grab cursor and grip
+       glyph would advertise a gesture that doesn't work — moving a page on
+       these devices happens through the "Move to" select in the toolbar instead. */
+    .node {
+      cursor: default;
+    }
+
+    .node .grip {
+      display: none;
+    }
+  }
 </style>

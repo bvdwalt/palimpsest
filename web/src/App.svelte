@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { slide } from "svelte/transition";
   import * as api from "./lib/api";
   import type { PageSummary, Page, Revision, SearchResult } from "./types/Page";
@@ -12,6 +13,12 @@
 
   let draggedId = $state<string | null>(null);
   let topLevelDropActive = $state(false);
+
+  // Off-canvas drawer state. Ignored above the mobile breakpoint (sidebar is always visible there).
+  let sidebarOpen = $state(false);
+
+  let titleInputEl = $state<HTMLInputElement | null>(null);
+  let editorComponent = $state<ReturnType<typeof Editor> | null>(null);
 
   let editTitle = $state("");
   let editParentId = $state<string | null>(null);
@@ -79,12 +86,15 @@
     editParentId = current.parentId;
     editContentJson = current.contentJson;
     editContentText = current.contentText;
+    sidebarOpen = false; // no-op on desktop; on mobile, picking a page should hand focus to the editor
   }
 
   async function selectPage(id: string) {
     if (!(await resolveUnsavedChanges())) return;
     try {
       await loadPageIntoEditor(id);
+      await tick();
+      editorComponent?.focus();
     } catch (e) {
       error = (e as Error).message;
     }
@@ -190,6 +200,9 @@
       const page = await api.createPage(parentId, "Untitled");
       await loadPages();
       await loadPageIntoEditor(page.id);
+      await tick();
+      titleInputEl?.focus();
+      titleInputEl?.select();
     } catch (e) {
       error = (e as Error).message;
     }
@@ -259,24 +272,32 @@
     selectPage(id);
   }
 
-  // Ancestor slugs joined into a path, e.g. "homelab/altair/networking".
-  function pagePath(pageId: string): string {
-    const chain: string[] = [];
-    let p: PageSummary | undefined = pages.find((p) => p.id === pageId);
-    while (p) {
-      chain.unshift(p.slug);
-      const parentId: string | null = p.parentId;
-      p = parentId ? pages.find((p) => p.id === parentId) : undefined;
-    }
-    return chain.join("/");
-  }
-
   loadPages();
   loadConfig();
 </script>
 
 <div class="layout">
-  <aside class="sidebar">
+  <div class="mobile-topbar">
+    <button class="menu-toggle" onclick={() => (sidebarOpen = true)} aria-label="Show notes list">
+      <span></span><span></span><span></span>
+    </button>
+    {#if !current}
+      <span class="mobile-title">Palimpsest</span>
+    {/if}
+  </div>
+
+  {#if sidebarOpen}
+    <div
+      class="backdrop"
+      role="button"
+      tabindex="-1"
+      aria-label="Close notes list"
+      onclick={() => (sidebarOpen = false)}
+      onkeydown={(e) => e.key === "Escape" && (sidebarOpen = false)}
+    ></div>
+  {/if}
+
+  <aside class="sidebar" class:open={sidebarOpen}>
     <div class="search">
       <input
         type="text"
@@ -350,25 +371,26 @@
   <main>
     {#if current}
       <div class="toolbar">
-        <div class="title-block">
-          <input
-            class="title-input"
-            type="text"
-            bind:value={editTitle}
-            placeholder="Page title"
-          />
-          <span class="page-path">~/{pagePath(current.id)}</span>
-        </div>
-        <select
-          class="parent-select"
-          value={editParentId ?? ""}
-          onchange={onParentSelectChange}
-        >
-          <option value="">— Top level —</option>
-          {#each moveTargets(current.id) as target (target.page.id)}
-            <option value={target.page.id}>{moveTargetLabel(target)}</option>
-          {/each}
-        </select>
+        <input
+          class="title-input"
+          type="text"
+          bind:this={titleInputEl}
+          bind:value={editTitle}
+          placeholder="Page title"
+        />
+        <label class="move-control">
+          <span>Move to</span>
+          <select
+            class="parent-select"
+            value={editParentId ?? ""}
+            onchange={onParentSelectChange}
+          >
+            <option value="">— Top level —</option>
+            {#each moveTargets(current.id) as target (target.page.id)}
+              <option value={target.page.id}>{moveTargetLabel(target)}</option>
+            {/each}
+          </select>
+        </label>
         <label class="autosave-toggle">
           <input type="checkbox" bind:checked={autosaveEnabled} />
           Autosave
@@ -412,6 +434,7 @@
         </div>
       {:else}
         <Editor
+          bind:this={editorComponent}
           contentJson={editContentJson}
           {pages}
           onChange={onEditorChange}
@@ -441,6 +464,33 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .mobile-topbar {
+    display: none;
+  }
+
+  .menu-toggle {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+  }
+
+  .menu-toggle span {
+    display: block;
+    width: 16px;
+    height: 1.5px;
+    background: currentColor;
+  }
+
+  .backdrop {
+    display: none;
   }
 
   .search {
@@ -555,15 +605,9 @@
     z-index: 1;
   }
 
-  .title-block {
+  .title-input {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .title-input {
     font-size: 1.4rem;
     font-family: inherit;
     background: none;
@@ -578,12 +622,12 @@
     border-bottom-color: var(--accent);
   }
 
-  .page-path {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
+  .move-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
     color: var(--muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -594,6 +638,7 @@
     padding: 0.4rem 0.6rem;
     border-radius: 4px;
     max-width: 180px;
+    font-family: inherit;
   }
 
   .autosave-toggle {
@@ -685,5 +730,96 @@
     display: flex;
     gap: 0.4rem;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 720px) {
+    .layout {
+      position: relative;
+      flex-direction: column;
+    }
+
+    .mobile-topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      min-height: 0;
+    }
+
+    .mobile-topbar:has(.mobile-title) {
+      padding: 0.5rem 0.75rem;
+    }
+
+    .mobile-title {
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 25;
+      border: none;
+      padding: 0;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 30;
+      width: 85%;
+      max-width: 320px;
+      background: var(--bg);
+      transform: translateX(-100%);
+      transition: transform 200ms ease;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    main {
+      padding: 0.75rem;
+    }
+
+    .toolbar {
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .title-input {
+      flex-basis: 100%;
+      font-size: 1.15rem;
+      padding: 0.15rem 0;
+    }
+
+    .move-control {
+      flex-basis: 100%;
+    }
+
+    .parent-select {
+      max-width: none;
+      flex: 1;
+    }
+
+    /* Touch targets grow to a comfortable minimum; drag-and-drop isn't available on
+       touch, so moving a page happens through this select instead — it needs to be
+       easy to hit. */
+    .parent-select,
+    button {
+      min-height: 44px;
+    }
   }
 </style>

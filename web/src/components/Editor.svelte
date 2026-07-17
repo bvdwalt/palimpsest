@@ -99,6 +99,10 @@
 
   onDestroy(() => editor?.destroy());
 
+  export function focus() {
+    editor?.commands.focus("end");
+  }
+
   // Sync on page switch only — onUpdate already owns local keystrokes.
   $effect(() => {
     if (editor && contentJson !== lastSyncedContent) {
