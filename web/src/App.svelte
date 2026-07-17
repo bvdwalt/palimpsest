@@ -83,7 +83,11 @@
 
   async function selectPage(id: string) {
     if (!(await resolveUnsavedChanges())) return;
-    await loadPageIntoEditor(id);
+    try {
+      await loadPageIntoEditor(id);
+    } catch (e) {
+      error = (e as Error).message;
+    }
   }
 
   function onEditorChange(contentJson: string, contentText: string) {
@@ -407,7 +411,12 @@
           {/if}
         </div>
       {:else}
-        <Editor contentJson={editContentJson} onChange={onEditorChange} />
+        <Editor
+          contentJson={editContentJson}
+          {pages}
+          onChange={onEditorChange}
+          onNavigateToPage={selectPage}
+        />
       {/if}
     {:else}
       <div class="empty-state">
