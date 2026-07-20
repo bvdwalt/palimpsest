@@ -280,8 +280,7 @@
     selectPage(id);
   }
 
-  loadPages();
-  loadConfig();
+  loadConfig().then(loadPages);
 </script>
 
 <div class="layout">
