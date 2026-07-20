@@ -8,10 +8,9 @@ import (
 )
 
 // requireAPIKey rejects requests whose X-Api-Key header doesn't match the
-// store's current API key. Not a real access boundary on its own — see the
-// caveat surfaced in the settings UI — but it keeps naive/accidental
-// callers off the API and gives external integrations a revocable
-// credential.
+// store's current API key. Not a real access boundary (see the settings UI
+// caveat), but it keeps naive callers off the API and gives external
+// integrations a revocable credential.
 func requireAPIKey(st *store.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
