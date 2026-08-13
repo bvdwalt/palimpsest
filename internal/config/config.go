@@ -9,6 +9,7 @@ type Config struct {
 	Port                    string
 	DBPath                  string // DB_PATH — only used if internal/db is wired in
 	AutosaveIntervalSeconds int
+	PyroscopeServerAddress  string
 }
 
 func Load() *Config {
@@ -16,6 +17,7 @@ func Load() *Config {
 		Port:                    getEnv("PORT", "8080"),
 		DBPath:                  getEnv("DB_PATH", "/data/palimpsest.db"),
 		AutosaveIntervalSeconds: getEnvInt("AUTOSAVE_INTERVAL_SECONDS", 10),
+		PyroscopeServerAddress:  getEnv("PYROSCOPE_SERVER_ADDRESS", ""),
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/bvdwalt/palimpsest/internal/db"
 	"github.com/bvdwalt/palimpsest/internal/server"
 	"github.com/bvdwalt/palimpsest/internal/store"
+	"github.com/grafana/pyroscope-go"
 )
 
 func run(ctx context.Context, cfg *config.Config) error {
@@ -59,6 +60,23 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	cfg := config.Load()
+
+	if cfg.PyroscopeServerAddress != "" {
+		if _, err := pyroscope.Start(pyroscope.Config{
+			ApplicationName: "palimpsest",
+			ServerAddress:   cfg.PyroscopeServerAddress,
+			ProfileTypes: []pyroscope.ProfileType{
+				pyroscope.ProfileCPU,
+				pyroscope.ProfileAllocObjects,
+				pyroscope.ProfileAllocSpace,
+				pyroscope.ProfileInuseObjects,
+				pyroscope.ProfileInuseSpace,
+				pyroscope.ProfileGoroutines,
+			},
+		}); err != nil {
+			slog.Error("failed to start pyroscope", "err", err)
+		}
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
