@@ -65,7 +65,7 @@
     editor = new Editor({
       element,
       extensions: [
-        StarterKit,
+        StarterKit.configure({ link: false }),
         MarkdownLink.configure({
           autolink: true,
           linkOnPaste: true,
